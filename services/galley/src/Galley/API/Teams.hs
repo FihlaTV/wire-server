@@ -463,7 +463,7 @@ deleteTeamMember zusr zcon tid remove mBody = do
   unless okToDelete $ throwM youMustBeOwnerWithEmail
   team <- tdTeam <$> (Data.team tid >>= ifNothing teamNotFound)
   removeMembership <- Data.teamMember tid remove
-  mems <- Data.teamMembersUnsafeForLargeTeams tid -- @@@ TODO (really)
+  (mems, tooMany) <- Data.teamMembers' tid Nothing
   if team ^. teamBinding == Binding && isJust removeMembership
     then do
       body <- mBody & ifNothing (invalidPayload "missing request body")
@@ -472,7 +472,7 @@ deleteTeamMember zusr zcon tid remove mBody = do
       Journal.teamUpdate tid (filter (\u -> u ^. userId /= remove) mems)
       pure TeamMemberDeleteAccepted
     else do
-      uncheckedDeleteTeamMember zusr (Just zcon) tid remove (Just mems)
+      uncheckedDeleteTeamMember zusr (Just zcon) tid remove (if tooMany then Nothing else Just mems)
       pure TeamMemberDeleteCompleted
 
 -- This function is "unchecked" because it does not validate that the user has the `RemoveTeamMember` permission.

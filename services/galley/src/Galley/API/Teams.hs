@@ -413,10 +413,10 @@ updateTeamMember zusr zcon tid targetMember = do
     throwM youMustBeOwnerWithEmail
   -- update target in Cassandra
   Data.updateTeamMember tid targetId targetPermissions
-  updatedMembers <- Data.teamMembersUnsafeForLargeTeams tid
-  -- @@@ only for tier-2,3 teams note the change in the journal etc.
+  (updatedMembers, tooMany) <- Data.teamMembers' tid Nothing
   updateJournal team updatedMembers
-  updatePeers targetId targetPermissions updatedMembers
+  unless tooMany $ do
+    updatePeers targetId targetPermissions updatedMembers
   where
     updateJournal :: Team -> [TeamMember] -> Galley ()
     updateJournal team updatedMembers = do

@@ -464,31 +464,39 @@ deleteTeamMember zusr zcon tid remove mBody = do
       Journal.teamUpdate tid (filter (\u -> u ^. userId /= remove) mems)
       pure TeamMemberDeleteAccepted
     else do
-      uncheckedRemoveTeamMember zusr (Just zcon) tid remove mems
+      uncheckedRemoveTeamMember zusr (Just zcon) tid remove (Just mems)
       pure TeamMemberDeleteCompleted
 
 -- This function is "unchecked" because it does not validate that the user has the `RemoveTeamMember` permission.
-uncheckedRemoveTeamMember :: UserId -> Maybe ConnId -> TeamId -> UserId -> [TeamMember] -> Galley ()
-uncheckedRemoveTeamMember zusr zcon tid remove mems = do
-  -- @@@ make mems a `Maybe`, only push if events for tier-2,3 teams.
-
+uncheckedRemoveTeamMember :: UserId -> Maybe ConnId -> TeamId -> UserId -> Maybe [TeamMember] -> Galley ()
+uncheckedRemoveTeamMember zusr zcon tid remove mmems = do
   now <- liftIO getCurrentTime
-  let e = newEvent MemberLeave tid now & eventData .~ Just (EdMemberLeave remove)
-  let r = list1 (userRecipient zusr) (membersToRecipients (Just zusr) mems)
-  push1 $ newPush1 zusr (TeamEvent e) r & pushConn .~ zcon
+  mapM_ (pushMemberLeaveEvent now) mmems
   Data.removeTeamMember tid remove
-  let tmids = Set.fromList $ map (view userId) mems
-  let edata = Conv.EdMembersLeave (Conv.UserIdList [remove])
-  cc <- Data.teamConversations tid
-  for_ cc $ \c -> Data.conversation (c ^. conversationId) >>= \conv ->
-    for_ conv $ \dc -> when (makeIdOpaque remove `isMember` Data.convMembers dc) $ do
-      Data.removeMember remove (c ^. conversationId)
-      unless (c ^. managedConversation) $
-        pushEvent tmids edata now dc
+  pushConvLeaveEvent now (fromMaybe [] mmems)
   where
-    pushEvent tmids edata now dc = do
+    -- notify all team members.
+    pushMemberLeaveEvent :: UTCTime -> [TeamMember] -> Galley ()
+    pushMemberLeaveEvent now mems = do
+      let e = newEvent MemberLeave tid now & eventData .~ Just (EdMemberLeave remove)
+      let r = list1 (userRecipient zusr) (membersToRecipients (Just zusr) mems)
+      push1 $ newPush1 zusr (TeamEvent e) r & pushConn .~ zcon
+    -- notify all conversation members not in this team.
+    pushConvLeaveEvent :: UTCTime -> [TeamMember] -> Galley ()
+    pushConvLeaveEvent now mems = do
+      let tmids = Set.fromList $ map (view userId) mems
+      let edata = Conv.EdMembersLeave (Conv.UserIdList [remove])
+      cc <- Data.teamConversations tid
+      for_ cc $ \c -> Data.conversation (c ^. conversationId) >>= \conv ->
+        for_ conv $ \dc -> when (makeIdOpaque remove `isMember` Data.convMembers dc) $ do
+          Data.removeMember remove (c ^. conversationId)
+          unless (c ^. managedConversation) $
+            pushEvent tmids edata now dc
+    --
+    pushEvent :: Set UserId -> Conv.EventData -> UTCTime -> Conversation -> Galley ()
+    pushEvent exceptTo edata now dc = do
       let (bots, users) = botsAndUsers (Data.convMembers dc)
-      let x = filter (\m -> not (Conv.memId m `Set.member` tmids)) users
+      let x = filter (\m -> not (Conv.memId m `Set.member` exceptTo)) users
       let y = Conv.Event Conv.MemberLeave (Data.convId dc) zusr now (Just edata)
       for_ (newPush zusr (ConvEvent y) (recipient <$> x)) $ \p ->
         push1 $ p & pushConn .~ zcon

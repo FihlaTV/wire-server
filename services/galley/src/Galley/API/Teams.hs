@@ -29,7 +29,7 @@ module Galley.API.Teams
     uncheckedAddTeamMemberH,
     uncheckedGetTeamMemberH,
     uncheckedGetTeamMembersH,
-    uncheckedRemoveTeamMember,
+    uncheckedDeleteTeamMember,
     withBindingTeam,
     getTruncatedTeamSizeH,
   )
@@ -464,12 +464,12 @@ deleteTeamMember zusr zcon tid remove mBody = do
       Journal.teamUpdate tid (filter (\u -> u ^. userId /= remove) mems)
       pure TeamMemberDeleteAccepted
     else do
-      uncheckedRemoveTeamMember zusr (Just zcon) tid remove (Just mems)
+      uncheckedDeleteTeamMember zusr (Just zcon) tid remove (Just mems)
       pure TeamMemberDeleteCompleted
 
 -- This function is "unchecked" because it does not validate that the user has the `RemoveTeamMember` permission.
-uncheckedRemoveTeamMember :: UserId -> Maybe ConnId -> TeamId -> UserId -> Maybe [TeamMember] -> Galley ()
-uncheckedRemoveTeamMember zusr zcon tid remove mmems = do
+uncheckedDeleteTeamMember :: UserId -> Maybe ConnId -> TeamId -> UserId -> Maybe [TeamMember] -> Galley ()
+uncheckedDeleteTeamMember zusr zcon tid remove mmems = do
   now <- liftIO getCurrentTime
   mapM_ (pushMemberLeaveEvent now) mmems
   Data.removeTeamMember tid remove

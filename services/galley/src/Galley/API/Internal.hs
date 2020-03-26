@@ -17,7 +17,7 @@ import Data.Metrics.Middleware as Metrics
 import Data.Range
 import Data.String.Conversions (cs)
 import Galley.API.Error (federationNotImplemented)
-import Galley.API.Teams (uncheckedRemoveTeamMember)
+import Galley.API.Teams (uncheckedDeleteTeamMember)
 import qualified Galley.API.Teams as Teams
 import Galley.API.Util (isMember, partitionMappedOrLocalIds, resolveOpaqueConvId)
 import Galley.App
@@ -46,7 +46,7 @@ rmUser user conn = do
   Data.eraseClients user
   where
     leaveTeams tids = for_ (result tids) $ \tid -> do
-      Data.teamMembersUnsafeForLargeTeams tid >>= uncheckedRemoveTeamMember user conn tid user . Just
+      Data.teamMembersUnsafeForLargeTeams tid >>= uncheckedDeleteTeamMember user conn tid user . Just
       when (hasMore tids) $
         leaveTeams =<< liftClient (nextPage tids)
     leaveConversations :: List1 UserId -> Page OpaqueConvId -> Galley ()

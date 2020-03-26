@@ -408,16 +408,13 @@ updateTeamMember zusr zcon tid targetMember = do
     Nothing -> throwM teamMemberNotFound
     _ -> pure ()
   -- cannot demote only owner (effectively removing the last owner)
-  members <- Data.teamMembersUnsafeForLargeTeams tid -- @@@ look up targetid instead!
-  okToDelete <- canBeDeleted members targetId tid
+  okToDelete <- canDeleteMember user zusr targetMember
   when (not okToDelete && targetPermissions /= fullPermissions) $
-    throwM noOtherOwner
+    throwM youMustBeOwnerWithEmail
   -- update target in Cassandra
   Data.updateTeamMember tid targetId targetPermissions
-  let otherMembers = filter (\u -> u ^. userId /= targetId) members
-      updatedMembers = targetMember : otherMembers
-  -- @@@ get 'updatedMembers' from database, and only for tier-2,3 teams
-  -- note the change in the journal
+  updatedMembers <- Data.teamMembersUnsafeForLargeTeams tid
+  -- @@@ only for tier-2,3 teams note the change in the journal etc.
   when (team ^. teamBinding == Binding) $ Journal.teamUpdate tid updatedMembers
   -- inform members of the team about the change
   -- some (privileged) users will be informed about which change was applied
@@ -448,11 +445,14 @@ deleteTeamMember zusr zcon tid remove mBody = do
   Log.debug $
     Log.field "targets" (toByteString remove)
       . Log.field "action" (Log.val "Teams.deleteTeamMember")
-  zusrMembership <- Data.teamMember tid zusr
-  void $ permissionCheck RemoveTeamMember zusrMembership
-  okToDelete <- canBeDeleted [] remove tid -- @@@ TODO (really)
-      -- @@@ also, why @canBeDeleted []@?!  do we have a test that owners can delete members?  if so, why does it work?
-  unless okToDelete $ throwM noOtherOwner
+  zusrMember <- Data.teamMember tid zusr
+  targetMember <- Data.teamMember tid remove
+  void $ permissionCheck RemoveTeamMember zusrMember
+  okToDelete <- do
+    dm <- maybe (throwM teamMemberNotFound) pure zusrMember
+    tm <- maybe (throwM teamMemberNotFound) pure targetMember
+    canDeleteMember dm zusr tm
+  unless okToDelete $ throwM youMustBeOwnerWithEmail
   team <- tdTeam <$> (Data.team tid >>= ifNothing teamNotFound)
   removeMembership <- Data.teamMember tid remove
   mems <- Data.teamMembersUnsafeForLargeTeams tid -- @@@ TODO (really)

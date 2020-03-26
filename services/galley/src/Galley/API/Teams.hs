@@ -415,18 +415,26 @@ updateTeamMember zusr zcon tid targetMember = do
   Data.updateTeamMember tid targetId targetPermissions
   updatedMembers <- Data.teamMembersUnsafeForLargeTeams tid
   -- @@@ only for tier-2,3 teams note the change in the journal etc.
-  when (team ^. teamBinding == Binding) $ Journal.teamUpdate tid updatedMembers
-  -- inform members of the team about the change
-  -- some (privileged) users will be informed about which change was applied
-  let privileged = filter (`canSeePermsOf` targetMember) updatedMembers
-      mkUpdate = EdMemberUpdate targetId
-      privilegedUpdate = mkUpdate $ Just targetPermissions
-      privilegedRecipients = membersToRecipients Nothing privileged
-  now <- liftIO getCurrentTime
-  let ePriv = newEvent MemberUpdate tid now & eventData ?~ privilegedUpdate
-  -- push to all members (user is privileged)
-  let pushPriv = newPush zusr (TeamEvent ePriv) $ privilegedRecipients
-  for_ pushPriv $ \p -> push1 $ p & pushConn .~ Just zcon
+  updateJournal team updatedMembers
+  updatePeers targetId targetPermissions updatedMembers
+  where
+    updateJournal :: Team -> [TeamMember] -> Galley ()
+    updateJournal team updatedMembers = do
+      when (team ^. teamBinding == Binding) $ Journal.teamUpdate tid updatedMembers
+    --
+    updatePeers :: UserId -> Permissions -> [TeamMember] -> Galley ()
+    updatePeers targetId targetPermissions updatedMembers = do
+      -- inform members of the team about the change
+      -- some (privileged) users will be informed about which change was applied
+      let privileged = filter (`canSeePermsOf` targetMember) updatedMembers
+          mkUpdate = EdMemberUpdate targetId
+          privilegedUpdate = mkUpdate $ Just targetPermissions
+          privilegedRecipients = membersToRecipients Nothing privileged
+      now <- liftIO getCurrentTime
+      let ePriv = newEvent MemberUpdate tid now & eventData ?~ privilegedUpdate
+      -- push to all members (user is privileged)
+      let pushPriv = newPush zusr (TeamEvent ePriv) $ privilegedRecipients
+      for_ pushPriv $ \p -> push1 $ p & pushConn .~ Just zcon
 
 deleteTeamMemberH :: UserId ::: ConnId ::: TeamId ::: UserId ::: OptionalJsonRequest TeamMemberDeleteData ::: JSON -> Galley Response
 deleteTeamMemberH (zusr ::: zcon ::: tid ::: remove ::: req ::: _) = do

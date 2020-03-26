@@ -358,7 +358,7 @@ setTeamBillingInfo tid tbu = do
           . expect2xx
       )
 
-canBeDeleted :: UserId -> TeamId -> Handler Bool
+canBeDeleted :: UserId -> TeamId -> Handler Bool -- TODO/@@@ - this end-point si gone!
 canBeDeleted uid tid = do
   info $ msg "Checking if a member can be deleted"
   b <- view brig

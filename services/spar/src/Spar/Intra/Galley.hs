@@ -8,6 +8,7 @@ import Control.Lens
 import Control.Monad.Except
 import Data.Aeson (FromJSON, eitherDecode')
 import Data.ByteString.Conversion
+import Data.Id
 import Data.Id (TeamId)
 import Data.String.Conversions
 import Galley.Types.Teams
@@ -44,6 +45,11 @@ getTeamMembers tid = do
   unless (statusCode resp == 200) $
     throwSpar (SparGalleyError "Could not retrieve team members")
   (^. teamMembers) <$> parseResponse @TeamMemberList resp
+
+-- | If user is not in team, throw 'SparNotInTeam'; if user is in team but not owner, throw
+-- 'SparNotTeamOwner'; otherwise, return.
+assertIsTeamOwner :: (HasCallStack, MonadSparToGalley m) => UserId -> TeamId -> m ()
+assertIsTeamOwner = undefined -- TODO/@@@
 
 assertSSOEnabled ::
   (HasCallStack, MonadError SparError m, MonadSparToGalley m) =>

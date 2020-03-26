@@ -19,7 +19,6 @@ import qualified Brig.Provider.API as Provider
 import qualified Brig.TURN.API as TURN
 import qualified Brig.Team.API as Team
 import qualified Brig.Team.Email as Team
-import qualified Brig.Team.Util as Team
 import Brig.Types
 import Brig.Types.Intra
 import qualified Brig.Types.Swagger as Doc
@@ -130,15 +129,6 @@ sitemap o = do
   post "/i/users/phone-prefixes" (continue addPhonePrefixH) $
     accept "application" "json"
       .&. jsonRequest @ExcludedPrefix
-  -- is :uid not team owner, or there are other team owners?
-  get "/i/users/:uid/can-be-deleted/:tid" (continue canBeDeletedH) $
-    -- @@@ remove this.  track 'TeamOwnershipStatus' and try to remove / reduce that as well.
-    capture "uid"
-      .&. capture "tid"
-  -- is :uid team owner (the only one or one of several)?
-  get "/i/users/:uid/is-team-owner/:tid" (continue isTeamOwnerH) $
-    capture "uid"
-      .&. capture "tid"
   put "/i/users/:uid/sso-id" (continue updateSSOIdH) $
     capture "uid"
       .&. accept "application" "json"
@@ -1431,34 +1421,6 @@ addPhonePrefixH (_ ::: req) = do
   prefix :: ExcludedPrefix <- parseJsonBody req
   void . lift $ API.phonePrefixInsert prefix
   return empty
-
-canBeDeletedH :: UserId ::: TeamId -> Handler Response
-canBeDeletedH (uid ::: tid) = do
-  onlyOwner <- lift (Team.teamOwnershipStatus uid tid)
-  if canBeDeleted onlyOwner
-    then pure empty
-    else throwStd noOtherOwner
-
-canBeDeleted :: Team.TeamOwnershipStatus -> Bool
-canBeDeleted = \case
-  Team.IsOnlyTeamOwnerWithEmail -> False
-  Team.IsOneOfManyTeamOwnersWithEmail -> True
-  Team.IsTeamOwnerWithoutEmail -> True
-  Team.IsNotTeamOwner -> True
-
-isTeamOwnerH :: UserId ::: TeamId -> Handler Response
-isTeamOwnerH (uid ::: tid) = do
-  onlyOwner <- lift (Team.teamOwnershipStatus uid tid)
-  if isTeamOwner onlyOwner
-    then pure empty
-    else throwStd insufficientTeamPermissions
-
-isTeamOwner :: Team.TeamOwnershipStatus -> Bool
-isTeamOwner = \case
-  Team.IsOnlyTeamOwnerWithEmail -> True
-  Team.IsOneOfManyTeamOwnersWithEmail -> True
-  Team.IsTeamOwnerWithoutEmail -> True
-  Team.IsNotTeamOwner -> False
 
 updateSSOIdH :: UserId ::: JSON ::: JsonRequest UserSSOId -> Handler Response
 updateSSOIdH (uid ::: _ ::: req) = do

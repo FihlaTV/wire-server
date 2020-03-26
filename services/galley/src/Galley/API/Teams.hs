@@ -417,7 +417,6 @@ updateTeamMember zusr zcon tid targetMember = do
   let otherMembers = filter (\u -> u ^. userId /= targetId) members
       updatedMembers = targetMember : otherMembers
   -- @@@ get 'updatedMembers' from database, and only for tier-2,3 teams
-  updatedMembers <- Data.teamMembersUnsafeForLargeTeams tid
   -- note the change in the journal
   when (team ^. teamBinding == Binding) $ Journal.teamUpdate tid updatedMembers
   -- inform members of the team about the change

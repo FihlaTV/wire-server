@@ -737,7 +737,11 @@ deleteUser uid pwd = do
       isOwnerWithEmail <- case (muid, mtid) of
         (Nothing, _) -> pure False
         (_, Nothing) -> pure False
-        (Just u, Just t) -> lift $ Intra.isTeamOwnerWithEmail u t
+        (Just u, Just t) -> do
+          isOwner <- lift $ Intra.isTeamOwner t u
+          muser <- lift (Data.lookupUser uid)
+          let hasEmail = isJust $ userEmail =<< muser
+          pure $ isOwner && hasEmail
       if isOwnerWithEmail then throwE DeleteUserOwnerWithEmail else pure ()
     go a = maybe (byIdentity a) (byPassword a) pwd
     getEmailOrPhone :: UserIdentity -> Maybe (Either Email Phone)

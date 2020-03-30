@@ -26,7 +26,7 @@ module Brig.IO.Intra
     -- * Teams
     addTeamMember,
     createTeam,
-    isTeamOwnerWithEmail,
+    isTeamOwner,
     getTeamMember,
     getTeamMembers,
     getTeam,
@@ -71,6 +71,7 @@ import Data.Range
 import qualified Data.Set as Set
 import Galley.Types (Connect (..), Conversation)
 import qualified Galley.Types.Teams as Team
+import Galley.Types.Teams.Intra (IsTeamOwner (IsTeamOwner))
 import qualified Galley.Types.Teams.Intra as Team
 import Gundeck.Types.Push.V2
 import qualified Gundeck.Types.Push.V2 as Push
@@ -680,8 +681,14 @@ createTeam u t@(Team.BindingNewTeam bt) teamid = do
         . expect2xx
         . lbytes (encode t)
 
-isTeamOwnerWithEmail :: UserId -> TeamId -> AppIO Bool
-isTeamOwnerWithEmail = undefined -- TODO/@@@
+isTeamOwner :: TeamId -> UserId -> AppIO Bool
+isTeamOwner tid uid = do
+  r <-
+    galleyRequest GET $
+      (paths ["i", "teams", toByteString' tid, "is-team-owner", toByteString' uid])
+  pure $ case responseJsonMaybe r of
+    Nothing -> False
+    Just (IsTeamOwner b) -> b
 
 getTeamMember :: UserId -> TeamId -> AppIO (Maybe Team.TeamMember)
 getTeamMember u tid = do

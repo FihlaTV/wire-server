@@ -82,3 +82,12 @@ newtype TeamName
   deriving (Eq, Show, Generic)
 
 deriveJSON toJSONFieldName ''TeamName
+
+newtype IsTeamOwner = IsTeamOwner Bool
+  deriving (Eq, Show)
+
+instance ToJSON IsTeamOwner where
+  toJSON (IsTeamOwner yes) = object ["is_team_owner" .= yes]
+
+instance FromJSON IsTeamOwner where
+  parseJSON = withObject "IsTeamOwner" $ fmap IsTeamOwner . (.: "is_team_owner")

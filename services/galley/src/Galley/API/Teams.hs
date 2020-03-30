@@ -40,7 +40,6 @@ import Brig.Types.Team.LegalHold (LegalHoldStatus (..), LegalHoldTeamConfig (..)
 import Cassandra (hasMore, result)
 import Control.Lens hiding (from, to)
 import Control.Monad.Catch
-import qualified Data.Aeson as Aeson
 import Data.ByteString.Conversion hiding (fromList)
 import Data.Id
 import qualified Data.List.Extra as List
@@ -770,12 +769,6 @@ getTruncatedTeamSize tid r = do
 
 userIsTeamOwnerH :: TeamId ::: UserId ::: JSON -> Galley Response
 userIsTeamOwnerH (tid ::: uid ::: _) = json <$> userIsTeamOwner tid uid
-
-newtype IsTeamOwner = IsTeamOwner Bool
-  deriving (Eq, Show)
-
-instance Aeson.ToJSON IsTeamOwner where
-  toJSON (IsTeamOwner yes) = Aeson.object ["is_team_owner" Aeson..= yes]
 
 userIsTeamOwner :: TeamId -> UserId -> Galley IsTeamOwner
 userIsTeamOwner tid uid = do

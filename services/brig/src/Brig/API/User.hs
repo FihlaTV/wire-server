@@ -732,13 +732,8 @@ deleteUser uid pwd = do
   where
     ensureNotOwnerWithEmail :: Maybe UserAccount -> ExceptT DeleteUserError (AppT IO) ()
     ensureNotOwnerWithEmail acc = do
-      -- TODO/@@@ make sure this is test is not run if the
-      -- team owner deletes the entire team (in that case it's
-      -- fine to remove the last contact).  (there should
-      -- really be a test that catches that, but i'm leaving
-      -- this note just in case.)
       let muid = userId . accountUser <$> acc
-          mtid = undefined
+          mtid = userTeam =<< (accountUser <$> acc)
       isOwnerWithEmail <- case (muid, mtid) of
         (Nothing, _) -> pure False
         (_, Nothing) -> pure False

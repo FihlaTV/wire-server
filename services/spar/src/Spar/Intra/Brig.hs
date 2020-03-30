@@ -355,7 +355,7 @@ getZUsrOwnedTeam (Just uid) = do
   usr <- getBrigUser uid
   case userTeam =<< usr of
     Nothing -> throwSpar SparNotInTeam
-    Just teamid -> teamid <$ Galley.assertIsTeamOwner uid teamid
+    Just teamid -> teamid <$ Galley.assertIsTeamOwner teamid uid
 
 -- | Verify user's password (needed for certain powerful operations).
 ensureReAuthorised ::

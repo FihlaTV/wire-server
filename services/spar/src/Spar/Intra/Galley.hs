@@ -12,6 +12,7 @@ import Data.Id
 import Data.Id (TeamId)
 import Data.String.Conversions
 import Galley.Types.Teams
+import Galley.Types.Teams.Intra (IsTeamOwner (IsTeamOwner))
 import Galley.Types.Teams.SSO
 import Imports
 import Network.HTTP.Types.Method
@@ -48,8 +49,16 @@ getTeamMembers tid = do
 
 -- | If user is not in team, throw 'SparNotInTeam'; if user is in team but not owner, throw
 -- 'SparNotTeamOwner'; otherwise, return.
-assertIsTeamOwner :: (HasCallStack, MonadSparToGalley m) => UserId -> TeamId -> m ()
-assertIsTeamOwner = undefined -- TODO/@@@
+assertIsTeamOwner :: (HasCallStack, MonadError SparError m, MonadSparToGalley m) => TeamId -> UserId -> m ()
+assertIsTeamOwner tid uid = do
+  r <-
+    call $
+      method GET
+        . (paths ["i", "teams", toByteString' tid, "is-team-owner", toByteString' uid])
+  case responseJsonMaybe r of
+    Nothing -> throwSpar SparNotInTeam
+    Just (IsTeamOwner False) -> throwSpar SparNotTeamOwner
+    Just (IsTeamOwner True) -> pure ()
 
 assertSSOEnabled ::
   (HasCallStack, MonadError SparError m, MonadSparToGalley m) =>

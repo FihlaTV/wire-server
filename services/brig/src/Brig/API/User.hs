@@ -742,7 +742,7 @@ deleteUser uid pwd = do
           muser <- lift (Data.lookupUser uid)
           let hasEmail = isJust $ userEmail =<< muser
           pure $ isOwner && hasEmail
-      if isOwnerWithEmail then throwE DeleteUserOwnerWithEmail else pure ()
+      when isOwnerWithEmail (throwE DeleteUserOwnerWithEmail)
     go a = maybe (byIdentity a) (byPassword a) pwd
     getEmailOrPhone :: UserIdentity -> Maybe (Either Email Phone)
     getEmailOrPhone (FullIdentity e _) = Just $ Left e

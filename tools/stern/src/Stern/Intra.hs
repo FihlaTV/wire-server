@@ -358,25 +358,37 @@ setTeamBillingInfo tid tbu = do
           . expect2xx
       )
 
+-- | Team members can be deleted *unless* they have ownership privileges and an email address.
+-- If you have such a member that needs being deleted, you have two choices: (1) ask a fellow
+-- owner that also has an email address; (2) delete the entire team with all users.
 canBeDeleted :: UserId -> TeamId -> Handler Bool
--- TODO/@@@ - this end-point is gone!  we can use is-team-owner-with-email to enforce
--- reachability. (those need to be deleted by one of their peers, or the team must be
--- deleted entirely.)
 canBeDeleted uid tid = do
   info $ msg "Checking if a member can be deleted"
   b <- view brig
-  r <-
-    catchRpcErrors $
-      rpc'
-        "brig"
-        b
-        ( method GET
-            . paths ["/i/users", toByteString' uid, "can-be-deleted", toByteString' tid]
-        )
-  case Bilge.statusCode r of
-    200 -> return True
-    403 -> return False
-    _ -> throwE (Error status502 "bad-upstream" "bad response")
+  isO <- do
+    resp <-
+      catchRpcErrors $
+        rpc'
+          "galley"
+          b
+          ( method GET
+              . paths ["/i/teams", toByteString' tid, "is-team-owner", toByteString' uid]
+          )
+    pure $ case responseJsonMaybe resp of
+      Nothing -> False
+      Just (IsTeamOwner bo) -> bo
+  hasE <- do
+    resp <-
+      catchRpcErrors $
+        rpc'
+          "brig"
+          b
+          ( method GET
+              . paths ["/i/users"]
+              . query [("ids", Just $ toByteString' uid)]
+          )
+    pure . isJust $ userEmail =<< (accountUser <$> responseJsonMaybe resp)
+  pure $ not (isO && hasE)
 
 isBlacklisted :: Either Email Phone -> Handler Bool
 isBlacklisted emailOrPhone = do

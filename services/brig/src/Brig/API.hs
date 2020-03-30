@@ -1067,16 +1067,15 @@ internalListClients (UserSet usrs) = do
   UserClients . Map.mapKeys makeIdOpaque . Map.fromList
     <$> (API.lookupUsersClientIds $ Set.toList usrs)
 
-getClientH :: OpaqueUserId ::: ClientId ::: JSON -> Handler Response
-getClientH (usr ::: clt ::: _) =
-  getClient usr clt <&> \case
+getClientH :: UserId ::: ClientId ::: JSON -> Handler Response
+getClientH (zusr ::: clt ::: _) =
+  getClient zusr clt <&> \case
     Just c -> json c
     Nothing -> setStatus status404 empty
 
-getClient :: OpaqueUserId -> ClientId -> Handler (Maybe Client)
-getClient opaqueUserId clientId = do
-  resolvedUserId <- resolveOpaqueUserId opaqueUserId
-  API.lookupClient resolvedUserId clientId !>> clientError
+getClient :: UserId -> ClientId -> Handler (Maybe Client)
+getClient zusr clientId = do
+  API.lookupClient (Local zusr) clientId !>> clientError
 
 getUserClientsH :: OpaqueUserId ::: JSON -> Handler Response
 getUserClientsH (user ::: _) =

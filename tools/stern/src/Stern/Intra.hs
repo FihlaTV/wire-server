@@ -358,7 +358,10 @@ setTeamBillingInfo tid tbu = do
           . expect2xx
       )
 
-canBeDeleted :: UserId -> TeamId -> Handler Bool -- TODO/@@@ - this end-point si gone!
+canBeDeleted :: UserId -> TeamId -> Handler Bool
+-- TODO/@@@ - this end-point is gone!  we can use is-team-owner-with-email to enforce
+-- reachability. (those need to be deleted by one of their peers, or the team must be
+-- deleted entirely.)
 canBeDeleted uid tid = do
   info $ msg "Checking if a member can be deleted"
   b <- view brig

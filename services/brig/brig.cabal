@@ -4,7 +4,7 @@ cabal-version: 2.0
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 824497871484175c7f832e5e32d20687f9bad1ad0835054aa6cc42dd7cb68c25
+-- hash: c348be298ac406d4ae0e7c0837996e9a8760c9da48ef9ea533430dc738ef6c97
 
 name:           brig
 version:        1.35.0
@@ -945,7 +945,7 @@ executable brig-schema
     , zauth >=0.10.3
   default-language: Haskell2010
 
-test-suite brig-types-tests
+test-suite brig-tests
   type: exitcode-stdio-1.0
   main-is: Main.hs
   other-modules:

@@ -28,4 +28,4 @@ main :: IO ()
 main = getOptions desc Nothing defaultPath >>= run
   where
     desc = "Cannon - Websocket Push Service"
-    defaultPath = "/etc/wire/cannon/conf/cannon.yaml"
+    defaultPath = "/etc/qtune/cannon/conf/cannon.yaml"

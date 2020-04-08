@@ -11,9 +11,9 @@ version:        0.31.0
 synopsis:       Push Notification API
 description:    Push Notification API Service.
 category:       Network
-author:         Wire Swiss GmbH
-maintainer:     Wire Swiss GmbH <backend@wire.com>
-copyright:      (c) 2017 Wire Swiss GmbH
+author:         Qtune Unified Communications
+maintainer:     Qtune Unfied Services <backend@qtune.co.za>
+copyright:      (c) 2017 Qtune Unified Services
 license:        AGPL-3
 license-file:   LICENSE
 build-type:     Simple

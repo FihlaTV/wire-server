@@ -37,8 +37,8 @@ nginz:
 
 # Used by brig-integration (bot providers), galley-integration (legal hold)
 provider:
-  privateKey: test/resources/key.pem
-  publicKey: test/resources/pubkey.pem
-  cert: test/resources/cert.pem
+  privateKey: /etc/tls/cert.key
+  publicKey: /etc/tls/cert.crt
+  cert: /etc/tls/cert.crt
   botHost: https://127.0.0.1
   botPort: 29631

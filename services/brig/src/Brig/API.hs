@@ -1,5 +1,22 @@
 {-# LANGUAGE RecordWildCards #-}
 
+-- This file is part of the Wire Server implementation.
+--
+-- Copyright (C) 2020 Wire Swiss GmbH <opensource@wire.com>
+--
+-- This program is free software: you can redistribute it and/or modify it under
+-- the terms of the GNU Affero General Public License as published by the Free
+-- Software Foundation, either version 3 of the License, or (at your option) any
+-- later version.
+--
+-- This program is distributed in the hope that it will be useful, but WITHOUT
+-- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+-- FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+-- details.
+--
+-- You should have received a copy of the GNU Affero General Public License along
+-- with this program. If not, see <https://www.gnu.org/licenses/>.
+
 module Brig.API
   ( sitemap,
   )
@@ -395,12 +412,12 @@ sitemap o = do
     Doc.response 200 "Update successful." Doc.end
   ---
 
-  get "/self/name" (continue getUserNameH) $
+  get "/self/name" (continue getUserDisplayNameH) $
     accept "application" "json"
       .&. header "Z-User"
   document "GET" "selfName" $ do
     Doc.summary "Get your profile name"
-    Doc.returns (Doc.ref Doc.userName)
+    Doc.returns (Doc.ref Doc.userDisplayName)
     Doc.response 200 "Profile name found." Doc.end
   ---
 
@@ -1049,14 +1066,13 @@ updateClient :: UpdateClient -> UserId -> ClientId -> Handler ()
 updateClient body usr clt = do
   API.updateClient usr clt body !>> clientError
 
-listClientsH :: OpaqueUserId ::: JSON -> Handler Response
-listClientsH (opaqueUserId ::: _) =
-  json <$> listClients opaqueUserId
+listClientsH :: UserId ::: JSON -> Handler Response
+listClientsH (zusr ::: _) =
+  json <$> listClients zusr
 
-listClients :: OpaqueUserId -> Handler [Client]
-listClients opaqueUserId = do
-  resolvedUserId <- resolveOpaqueUserId opaqueUserId
-  API.lookupClients resolvedUserId !>> clientError
+listClients :: UserId -> Handler [Client]
+listClients zusr = do
+  API.lookupClients (Local zusr) !>> clientError
 
 internalListClientsH :: JSON ::: JsonRequest UserSet -> Handler Response
 internalListClientsH (_ ::: req) = do
@@ -1067,16 +1083,15 @@ internalListClients (UserSet usrs) = do
   UserClients . Map.mapKeys makeIdOpaque . Map.fromList
     <$> (API.lookupUsersClientIds $ Set.toList usrs)
 
-getClientH :: OpaqueUserId ::: ClientId ::: JSON -> Handler Response
-getClientH (usr ::: clt ::: _) =
-  getClient usr clt <&> \case
+getClientH :: UserId ::: ClientId ::: JSON -> Handler Response
+getClientH (zusr ::: clt ::: _) =
+  getClient zusr clt <&> \case
     Just c -> json c
     Nothing -> setStatus status404 empty
 
-getClient :: OpaqueUserId -> ClientId -> Handler (Maybe Client)
-getClient opaqueUserId clientId = do
-  resolvedUserId <- resolveOpaqueUserId opaqueUserId
-  API.lookupClient resolvedUserId clientId !>> clientError
+getClient :: UserId -> ClientId -> Handler (Maybe Client)
+getClient zusr clientId = do
+  API.lookupClient (Local zusr) clientId !>> clientError
 
 getUserClientsH :: OpaqueUserId ::: JSON -> Handler Response
 getUserClientsH (user ::: _) =
@@ -1155,7 +1170,7 @@ createUser (NewUserPublic new) = do
   let lang = userLocale usr
   lift $ do
     for_ (liftM2 (,) (userEmail usr) epair) $ \(e, p) ->
-      sendActivationEmail e (userName usr) p (Just lang) (newUserTeam new)
+      sendActivationEmail e (userDisplayName usr) p (Just lang) (newUserTeam new)
     for_ (liftM2 (,) (userPhone usr) ppair) $ \(p, c) ->
       sendActivationSms p c (Just lang)
     for_ (liftM3 (,,) (userEmail usr) (createdUserTeam result) (newUserTeam new)) $ \(e, ct, ut) ->
@@ -1236,8 +1251,8 @@ getUser self opaqueUserId = do
   resolvedUserId <- resolveOpaqueUserId opaqueUserId
   lift $ API.lookupProfile self resolvedUserId
 
-getUserNameH :: JSON ::: UserId -> Handler Response
-getUserNameH (_ ::: self) = do
+getUserDisplayNameH :: JSON ::: UserId -> Handler Response
+getUserDisplayNameH (_ ::: self) = do
   name :: Maybe Name <- lift $ API.lookupName self
   return $ case name of
     Just n -> json $ object ["name" .= n]
@@ -1266,9 +1281,9 @@ listUsers self = \case
     getIds :: [OptionallyQualified Handle] -> Handler [MappedOrLocalId Id.U]
     getIds hs = do
       -- we might be able to do something smarter if the domain is our own
-      let (localHandles, _remoteHandles) = partitionEithers (map eitherQualifiedOrNot hs)
+      let (localHandles, _qualifiedHandles) = partitionEithers (map eitherQualifiedOrNot hs)
       localUsers <- catMaybes <$> traverse (lift . API.lookupHandle) localHandles
-      -- FUTUREWORK(federation): resolve remote handles, too
+      -- FUTUREWORK(federation, #1268): resolve qualified handles, too
       pure (Local <$> localUsers)
     filterSameTeamOnly :: [UserProfile] -> Handler [UserProfile]
     filterSameTeamOnly us = do
@@ -1706,7 +1721,7 @@ changeEmail u req sendOutEmail = do
     handleActivation usr adata en = do
       when sendOutEmail $ do
         let apair = (activationKey adata, activationCode adata)
-        let name = userName usr
+        let name = userDisplayName usr
         let ident = userIdentity usr
         let lang = userLocale usr
         lift $ sendActivationMail en name apair (Just lang) ident

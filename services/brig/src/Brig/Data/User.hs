@@ -1,6 +1,23 @@
 {-# LANGUAGE RecordWildCards #-}
 {-# OPTIONS_GHC -fno-warn-orphans #-}
 
+-- This file is part of the Wire Server implementation.
+--
+-- Copyright (C) 2020 Wire Swiss GmbH <opensource@wire.com>
+--
+-- This program is free software: you can redistribute it and/or modify it under
+-- the terms of the GNU Affero General Public License as published by the Free
+-- Software Foundation, either version 3 of the License, or (at your option) any
+-- later version.
+--
+-- This program is distributed in the hope that it will be useful, but WITHOUT
+-- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+-- FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+-- details.
+--
+-- You should have received a copy of the GNU Affero General Public License along
+-- with this program. If not, see <https://www.gnu.org/licenses/>.
+
 -- for Show UserRowInsert
 
 -- TODO: Move to Brig.User.Account.DB
@@ -106,7 +123,7 @@ newAccount u inv tid = do
   where
     ident = newUserIdentity u
     pass = newUserPassword u
-    name = newUserName u
+    name = newUserDisplayName u
     pict = fromMaybe noPict (newUserPict u)
     assets = newUserAssets u
     status = case ident of
@@ -166,7 +183,7 @@ insertAccount (UserAccount u status) mbConv password activated = retry x5 $ batc
   addPrepQuery
     userInsert
     ( userId u,
-      userName u,
+      userDisplayName u,
       userPict u,
       userAssets u,
       userEmail u,
@@ -208,7 +225,7 @@ updateUser :: UserId -> UserUpdate -> AppIO ()
 updateUser u UserUpdate {..} = retry x5 $ batch $ do
   setType BatchLogged
   setConsistency Quorum
-  for_ uupName $ \n -> addPrepQuery userNameUpdate (n, u)
+  for_ uupName $ \n -> addPrepQuery userDisplayNameUpdate (n, u)
   for_ uupPict $ \p -> addPrepQuery userPictUpdate (p, u)
   for_ uupAssets $ \a -> addPrepQuery userAssetsUpdate (a, u)
   for_ uupAccentId $ \c -> addPrepQuery userAccentIdUpdate (c, u)
@@ -512,8 +529,8 @@ userInsert =
   \country, provider, service, handle, team, managed_by) \
   \VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
-userNameUpdate :: PrepQuery W (Name, UserId) ()
-userNameUpdate = "UPDATE user SET name = ? WHERE id = ?"
+userDisplayNameUpdate :: PrepQuery W (Name, UserId) ()
+userDisplayNameUpdate = "UPDATE user SET name = ? WHERE id = ?"
 
 userPictUpdate :: PrepQuery W (Pict, UserId) ()
 userPictUpdate = "UPDATE user SET picture = ? WHERE id = ?"

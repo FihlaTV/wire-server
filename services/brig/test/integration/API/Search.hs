@@ -1,4 +1,24 @@
-module API.Search (tests) where
+-- This file is part of the Wire Server implementation.
+--
+-- Copyright (C) 2020 Wire Swiss GmbH <opensource@wire.com>
+--
+-- This program is free software: you can redistribute it and/or modify it under
+-- the terms of the GNU Affero General Public License as published by the Free
+-- Software Foundation, either version 3 of the License, or (at your option) any
+-- later version.
+--
+-- This program is distributed in the hope that it will be useful, but WITHOUT
+-- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+-- FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+-- details.
+--
+-- You should have received a copy of the GNU Affero General Public License along
+-- with this program. If not, see <https://www.gnu.org/licenses/>.
+
+module API.Search
+  ( tests,
+  )
+where
 
 import API.Search.Util
 import API.Team.Util (createPopulatedBindingTeam, createPopulatedBindingTeamWithNames)
@@ -40,11 +60,11 @@ testSearchByName brig = do
   refreshIndex brig
   let uid1 = userId u1
       uid2 = userId u2
-  assertCanFind brig uid1 uid2 (fromName (userName u2))
-  assertCanFind brig uid2 uid1 (fromName (userName u1))
+  assertCanFind brig uid1 uid2 (fromName (userDisplayName u2))
+  assertCanFind brig uid2 uid1 (fromName (userDisplayName u1))
   -- Users cannot find themselves
-  assertCan'tFind brig uid1 uid1 (fromName (userName u1))
-  assertCan'tFind brig uid2 uid2 (fromName (userName u2))
+  assertCan'tFind brig uid1 uid1 (fromName (userDisplayName u1))
+  assertCan'tFind brig uid2 uid2 (fromName (userDisplayName u2))
 
 testSearchByHandle :: Brig -> Http ()
 testSearchByHandle brig = do
@@ -71,7 +91,7 @@ testReindex brig = do
     Just (found : _) <- fmap searchResults <$> executeSearch brig (userId u) h
     liftIO $ do
       assertEqual "Unexpected UserId" (contactUserId found) (userId u')
-      assertEqual "Unexpected Name" (contactName found) (fromName $ userName u')
+      assertEqual "Unexpected Name" (contactName found) (fromName $ userDisplayName u')
       assertEqual "Unexpected Colour" (contactColorId found) (Just . fromIntegral . fromColourId $ userAccentId u')
       assertEqual "Unexpected Handle" (contactHandle found) (fromHandle <$> userHandle u')
   where
@@ -85,27 +105,27 @@ testSearchTeamMemberAsNonMember galley brig = do
   nonTeamMember <- randomUser brig
   (_, _, [teamMember]) <- createPopulatedBindingTeam brig galley 1
   refreshIndex brig
-  assertCan'tFind brig (userId nonTeamMember) (userId teamMember) (fromName (userName teamMember))
+  assertCan'tFind brig (userId nonTeamMember) (userId teamMember) (fromName (userDisplayName teamMember))
 
 testSearchTeamMemberAsOtherMember :: Galley -> Brig -> Http ()
 testSearchTeamMemberAsOtherMember galley brig = do
   (_, _, [teamAMember]) <- createPopulatedBindingTeam brig galley 1
   (_, _, [teamBMember]) <- createPopulatedBindingTeam brig galley 1
   refreshIndex brig
-  assertCan'tFind brig (userId teamAMember) (userId teamBMember) (fromName (userName teamBMember))
+  assertCan'tFind brig (userId teamAMember) (userId teamBMember) (fromName (userDisplayName teamBMember))
 
 testSearchTeamMemberAsSameMember :: Galley -> Brig -> Http ()
 testSearchTeamMemberAsSameMember galley brig = do
   (_, _, [teamAMember, teamAMember']) <- createPopulatedBindingTeam brig galley 2
   refreshIndex brig
-  assertCanFind brig (userId teamAMember) (userId teamAMember') (fromName (userName teamAMember'))
+  assertCanFind brig (userId teamAMember) (userId teamAMember') (fromName (userDisplayName teamAMember'))
 
 testSeachNonMemberAsTeamMember :: Galley -> Brig -> Http ()
 testSeachNonMemberAsTeamMember galley brig = do
   nonTeamMember <- randomUser brig
   (_, _, [teamMember]) <- createPopulatedBindingTeam brig galley 1
   refreshIndex brig
-  assertCanFind brig (userId teamMember) (userId nonTeamMember) (fromName (userName nonTeamMember))
+  assertCanFind brig (userId teamMember) (userId nonTeamMember) (fromName (userDisplayName nonTeamMember))
 
 testSearchOrderingAsTeamMemeber :: Galley -> Brig -> Http ()
 testSearchOrderingAsTeamMemeber galley brig = do
@@ -126,4 +146,4 @@ testSearchSameTeamOnly opts galley brig = do
   refreshIndex brig
   let newOpts = opts & Opt.optionSettings . Opt.searchSameTeamOnly .~ Just True
   withSettingsOverrides newOpts $ do
-    assertCan'tFind brig (userId teamMember) (userId nonTeamMember) (fromName (userName nonTeamMember))
+    assertCan'tFind brig (userId teamMember) (userId nonTeamMember) (fromName (userDisplayName nonTeamMember))

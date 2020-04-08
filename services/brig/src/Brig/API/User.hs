@@ -1,5 +1,22 @@
 {-# LANGUAGE RecordWildCards #-}
 
+-- This file is part of the Wire Server implementation.
+--
+-- Copyright (C) 2020 Wire Swiss GmbH <opensource@wire.com>
+--
+-- This program is free software: you can redistribute it and/or modify it under
+-- the terms of the GNU Affero General Public License as published by the Free
+-- Software Foundation, either version 3 of the License, or (at your option) any
+-- later version.
+--
+-- This program is distributed in the hope that it will be useful, but WITHOUT
+-- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+-- FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+-- details.
+--
+-- You should have received a copy of the GNU Affero General Public License along
+-- with this program. If not, see <https://www.gnu.org/licenses/>.
+
 -- TODO: Move to Brig.User.Account
 module Brig.API.User
   ( -- * User Accounts / Profiles
@@ -599,7 +616,7 @@ sendActivationCode emailOrPhone loc call = case emailOrPhone of
           then sendActivationCall ph p loc
           else sendActivationSms ph p loc
   where
-    notFound = throwM . UserNameNotFound
+    notFound = throwM . UserDisplayNameNotFound
     mkPair k c u = do
       timeout <- setActivationTimeout <$> view settings
       case c of
@@ -616,7 +633,7 @@ sendActivationCode emailOrPhone loc call = case emailOrPhone of
       u <- maybe (notFound uid) return =<< lift (Data.lookupUser uid)
       p <- mkPair ek (Just uc) (Just uid)
       let ident = userIdentity u
-          name = userName u
+          name = userDisplayName u
           loc' = loc <|> Just (userLocale u)
       void . forEmailKey ek $ \em -> lift $ do
         -- Get user's team, if any.
@@ -786,7 +803,7 @@ deleteUser uid pwd = do
           let k = Code.codeKey c
           let v = Code.codeValue c
           let l = userLocale (accountUser a)
-          let n = userName (accountUser a)
+          let n = userDisplayName (accountUser a)
           either
             (\e -> lift $ sendDeletionEmail n e k v l)
             (\p -> lift $ sendDeletionSms p k v l)
@@ -836,7 +853,7 @@ deleteAccount account@(accountUser -> user) = do
           { accountStatus = Deleted,
             accountUser =
               user
-                { userName = Name "default",
+                { userDisplayName = Name "default",
                   userAccentId = defaultAccentId,
                   userPict = noPict,
                   userAssets = [],
@@ -901,7 +918,7 @@ lookupProfiles ::
 lookupProfiles self others = do
   let (localUsers, _remoteUsers) = partitionMappedOrLocalIds others
   localProfiles <- lookupProfilesOfLocalUsers self localUsers
-  -- FUTUREWORK(federation): fetch remote profiles
+  -- FUTUREWORK(federation, #1267): fetch remote profiles
   remoteProfiles <- pure []
   pure (localProfiles <> remoteProfiles)
 

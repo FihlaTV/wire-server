@@ -1,6 +1,23 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StrictData #-}
 
+-- This file is part of the Wire Server implementation.
+--
+-- Copyright (C) 2020 Wire Swiss GmbH <opensource@wire.com>
+--
+-- This program is free software: you can redistribute it and/or modify it under
+-- the terms of the GNU Affero General Public License as published by the Free
+-- Software Foundation, either version 3 of the License, or (at your option) any
+-- later version.
+--
+-- This program is distributed in the hope that it will be useful, but WITHOUT
+-- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+-- FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+-- details.
+--
+-- You should have received a copy of the GNU Affero General Public License along
+-- with this program. If not, see <https://www.gnu.org/licenses/>.
+
 module Brig.User.Search.Index
   ( -- * Monad
     IndexEnv (..),
@@ -10,6 +27,7 @@ module Brig.User.Search.Index
 
     -- * Queries
     searchIndex,
+    teamSize,
 
     -- * Updates
     reindex,
@@ -23,7 +41,7 @@ module Brig.User.Search.Index
     refreshIndex,
     updateMapping,
 
-    -- * exported for testin gonly
+    -- * exported for testing only
     userDoc,
 
     -- * Re-exports
@@ -36,6 +54,7 @@ where
 import Brig.Data.Instances ()
 import Brig.Types.Intra
 import Brig.Types.Search
+import Brig.Types.Team (TeamSize (..))
 import Brig.Types.User
 import Brig.User.Search.Index.Types as Types
 import qualified Cassandra as C
@@ -57,7 +76,7 @@ import Data.Text.ICU.Translit (trans, transliterate)
 import Data.Text.Lazy.Builder.Int (decimal)
 import Data.Text.Lens hiding (text)
 import qualified Data.UUID as UUID
-import qualified Database.V5.Bloodhound as ES
+import qualified Database.Bloodhound as ES
 import Imports hiding (log, searchable)
 import Network.HTTP.Client hiding (path)
 import Network.HTTP.Types (hContentType, statusCode)
@@ -120,6 +139,21 @@ instance ES.MonadBH IndexIO where
 
 --------------------------------------------------------------------------------
 -- Queries
+
+teamSize :: MonadIndexIO m => TeamId -> m TeamSize
+teamSize t = liftIndexIO $ do
+  indexName <- asks idxName
+  countResEither <- ES.countByIndex indexName (ES.CountQuery $ query)
+  countRes <- either (throwM . IndexLookupError) (pure) countResEither
+  pure . TeamSize $ ES.crCount countRes
+  where
+    query =
+      ES.TermQuery
+        ES.Term
+          { ES.termField = "team",
+            ES.termValue = idToText t
+          }
+        Nothing
 
 searchIndex ::
   MonadIndexIO m =>
@@ -332,8 +366,8 @@ updateIndex (IndexUpdateUsers updateType ius) = liftIndexIO $ do
       fromEncoding . pairs . pair "index" . pairs $
         "_id" .= docId
           <> "_version" .= v
+          -- "external_gt or external_gte"
           <> "_version_type" .= (indexUpdateToVersionControlText updateType)
-                              -- ^ "external_gt or external_gte"
     statuses :: ES.Reply -> [(Int, Int)] -- [(Status, Int)]
     statuses =
       Map.toList
@@ -451,11 +485,11 @@ reindexAllWith updateType = do
 
 -- This is useful and necessary due to the lack of expressiveness in the bulk API
 indexUpdateToVersionControlText :: IndexDocUpdateType -> Text
-indexUpdateToVersionControlText IndexUpdateIfNewerVersion       = "external_gt"
+indexUpdateToVersionControlText IndexUpdateIfNewerVersion = "external_gt"
 indexUpdateToVersionControlText IndexUpdateIfSameOrNewerVersion = "external_gte"
 
 indexUpdateToVersionControl :: IndexDocUpdateType -> (ES.ExternalDocVersion -> ES.VersionControl)
-indexUpdateToVersionControl IndexUpdateIfNewerVersion       = ES.ExternalGT
+indexUpdateToVersionControl IndexUpdateIfNewerVersion = ES.ExternalGT
 indexUpdateToVersionControl IndexUpdateIfSameOrNewerVersion = ES.ExternalGTE
 
 traceES :: MonadIndexIO m => ByteString -> IndexIO ES.Reply -> m ES.Reply

@@ -1,5 +1,26 @@
-module API.Team (tests) where
+-- This file is part of the Wire Server implementation.
+--
+-- Copyright (C) 2020 Wire Swiss GmbH <opensource@wire.com>
+--
+-- This program is free software: you can redistribute it and/or modify it under
+-- the terms of the GNU Affero General Public License as published by the Free
+-- Software Foundation, either version 3 of the License, or (at your option) any
+-- later version.
+--
+-- This program is distributed in the hope that it will be useful, but WITHOUT
+-- ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+-- FOR A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+-- details.
+--
+-- You should have received a copy of the GNU Affero General Public License along
+-- with this program. If not, see <https://www.gnu.org/licenses/>.
 
+module API.Team
+  ( tests,
+  )
+where
+
+import qualified API.Search.Util as SearchUtil
 import API.Team.Util
 import Bilge hiding (accept, head, timeout)
 import Bilge.Assert
@@ -40,8 +61,7 @@ tests conf m b c g aws = do
   return $
     testGroup
       "team"
-      [ testGroup
-          "invitation"
+      [ testGroup "invitation" $
           [ test m "post /teams/:tid/invitations - 201" $ testInvitationEmail b g,
             test m "post /teams/:tid/invitations - 403 no permission" $ testInvitationNoPermission b g,
             test m "post /teams/:tid/invitations - 403 too many pending" $ testInvitationTooManyPending b g tl,
@@ -65,13 +85,23 @@ tests conf m b c g aws = do
             test m "delete /self - 200 (ensure no orphan teams)" $ testDeleteTeamUser b g,
             test m "post /connections - 403 (same binding team)" $ testConnectionSameTeam b g
           ],
-        testGroup
-          "sso"
+        testGroup "sso" $
           [ test m "post /i/users  - 201 internal-SSO" $ testCreateUserInternalSSO b g,
             test m "delete /i/users/:uid - 202 internal-SSO (ensure no orphan teams)" $ testDeleteUserSSO b g,
             test m "get /i/users/:uid/is-team-owner/:tid" $ testSSOIsTeamOwner b g
-          ]
+          ],
+        testGroup "size" $ [test m "get /i/teams/:tid/size" $ testTeamSize b g]
       ]
+
+testTeamSize :: Brig -> Galley -> Http ()
+testTeamSize brig galley = do
+  (tid, _, _) <- createPopulatedBindingTeam brig galley 10
+  SearchUtil.refreshIndex brig
+  void $
+    get (brig . paths ["i", "teams", toByteString' tid, "size"]) <!! do
+      const 200 === statusCode
+      -- 10 Team Members and an admin
+      (const . Right $ TeamSize 11) === responseJsonEither
 
 -------------------------------------------------------------------------------
 -- Invitation Tests
@@ -194,7 +224,7 @@ testInvitationEmailAndPhoneAccepted brig galley = do
   Just (_, phoneCode) <- getActivationCode brig (Right inviteePhone)
   -- Register the user with the extra supplied information
   (profile, invitation) <- createAndVerifyInvitation (extAccept inviteeEmail inviteeName inviteePhone phoneCode) extInvite brig galley
-  liftIO $ assertEqual "Wrong name in profile" (Just inviteeName) (userName . selfUser <$> profile)
+  liftIO $ assertEqual "Wrong name in profile" (Just inviteeName) (userDisplayName . selfUser <$> profile)
   liftIO $ assertEqual "Wrong name in invitation" (Just inviteeName) (inInviteeName invitation)
   liftIO $ assertEqual "Wrong phone number in profile" (Just inviteePhone) (join (userPhone . selfUser <$> profile))
   liftIO $ assertEqual "Wrong phone number in invitation" (Just inviteePhone) (inPhone invitation)

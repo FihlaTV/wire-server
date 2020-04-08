@@ -25,7 +25,7 @@ settings:
   maxTeamSize: 32
   maxConvSize: 16
   intraListing: false
-  conversationCodeURI: https://app.wire.com/join/
+  conversationCodeURI: https://app.qtune.co.za/join/
   concurrentDeletionEvents: 1024
   deleteConvThrottleMillis: 0
 

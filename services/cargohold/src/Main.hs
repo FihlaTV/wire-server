@@ -31,4 +31,4 @@ main = withOpenSSL $ do
   run options
   where
     desc = "Cargohold - Asset Storage"
-    defaultPath = "/etc/wire/cargohold/conf/cargohold.yaml"
+    defaultPath = "/etc/qtune/cargohold/conf/cargohold.yaml"

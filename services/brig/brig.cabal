@@ -10,9 +10,9 @@ name:           brig
 version:        1.35.0
 synopsis:       User Service
 category:       Network
-author:         Wire Swiss GmbH
-maintainer:     Wire Swiss GmbH <backend@wire.com>
-copyright:      (c) 2017 Wire Swiss GmbH
+author:         Qtune Unified Communications
+maintainer:     Qtune Unfied Services <backend@qtune.co.za>
+copyright:      (c) 2017 Qtune Unified Services
 license:        AGPL-3
 license-file:   LICENSE
 build-type:     Simple
